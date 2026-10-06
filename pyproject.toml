@@ -1,0 +1,23 @@
+[project]
+name = "plate-screen"
+version = "0.1.0"
+description = "Turn daily photos of an antibiotic plate screening into per-strain tables"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5.3",
+    "opencv-python-headless>=5.0.0.93",
+    "pillow>=12.3.0",
+]
+
+[project.scripts]
+plate-screen = "plate_screen:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
