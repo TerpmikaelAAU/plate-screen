@@ -9,7 +9,7 @@ from .align import logo_turns
 from .check import check as check_labels
 from .crop import Circle, crop_plate, find_dish
 from .key import Key, Plate
-from .labels import Labels
+from .labels import Label, Labels
 from .round import Move, Round
 from .table import font, render_table, table_name
 
@@ -72,7 +72,7 @@ def _overrides(round: Round) -> dict[str, Circle]:
         return {r["photo"]: (float(r["x"]), float(r["y"]), float(r["r"])) for r in csv.DictReader(f)}
 
 
-def _used(round: Round) -> list:
+def _used(round: Round) -> list[Label]:
     """Labels whose Photos go into Crops and Tables. The same set every time, as each Crop's turn depends on the rest."""
     return [r for r in Labels.load(round).rows if r.status in USED and r.plate is not None]
 
@@ -146,7 +146,7 @@ def table(round: Round) -> list[Path]:
     key = _key(round)
     labels = _used(round)
     crops = _crops(round, labels)
-    days = list(range(max((r.day for r in labels), default=0) + 1))
+    days = list(range(max((r.day for r in labels if r.plate in key), default=0) + 1))
     out = round.folder / TABLES
     out.mkdir(exist_ok=True)
     written = []
