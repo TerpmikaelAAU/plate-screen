@@ -19,7 +19,7 @@ BAND = (0.68, 0.85)  # where the logo sits, as a fraction of the dish radius
 BINS = 720  # angle steps around the dish
 LOGO_WIDTH = 100  # bins (50°): about the width of the SARSTEDT logo
 MIN_CLARITY = 2.0  # best match must beat any match more than 10° away by this factor
-MIN_STANDOUT = 3.0  # the logo must carry this many times the average detail of the ring (real dishes: about 7)
+MIN_STANDOUT = 4.5  # the logo must carry this many times the average detail of the ring (real dishes: about 7)
 ROUNDS = 3
 
 
@@ -66,7 +66,7 @@ def logo_turns(crops: dict[K, Image.Image]) -> dict[K, float | None]:
         shifts = match(ref).argmax(axis=1)
         aligned = np.stack([np.roll(s, -k, axis=0) for s, k in zip(strips, shifts)])
         ref = aligned.mean(axis=0)
-    # Score each Crop against the average of the others, so a Crop never matches its own grain
+    # Score each Crop against the average of the others, so a Crop never matches its own grain (a lone Crop has only itself)
     others = (aligned.sum(axis=0)[None] - aligned) / max(len(keys) - 1, 1) if len(keys) > 1 else aligned
     scores = np.fft.irfft(spectra * np.conj(np.fft.rfft(others, axis=1)), n=BINS, axis=1).sum(axis=2)
     shifts = scores.argmax(axis=1)
@@ -81,5 +81,5 @@ def logo_turns(crops: dict[K, Image.Image]) -> dict[K, float | None]:
         best, rival = row[shift], row[distance > BINS // 36].max()
         clear = best > 0 and best > MIN_CLARITY * max(rival, 0)
         # warpPolar angles run clockwise from 3 o'clock; the bottom is 90°
-        turns[key] = ((logo + shift) * 360 / BINS - 90) % 360 if clear else None
+        turns[key] = float(((logo + shift) * 360 / BINS - 90) % 360) if clear else None
     return turns

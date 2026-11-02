@@ -72,13 +72,18 @@ def _overrides(round: Round) -> dict[str, Circle]:
         return {r["photo"]: (float(r["x"]), float(r["y"]), float(r["r"])) for r in csv.DictReader(f)}
 
 
+def _used(round: Round) -> list:
+    """Labels whose Photos go into Crops and Tables. The same set every time, as each Crop's turn depends on the rest."""
+    return [r for r in Labels.load(round).rows if r.status in USED and r.plate is not None]
+
+
 def _crop_dir(round: Round) -> Path:
     return round.folder / REVIEW / "crops"
 
 
 def crop(round: Round) -> list[str]:
     """Crop every labelled Photo (cached in Review/crops) and draw Review/crops.jpg. Returns Photos with no dish found."""
-    labels = [r for r in Labels.load(round).rows if r.status in USED and r.plate is not None]
+    labels = _used(round)
     paths = {p.name: p.path for p in round.photos()}
     overrides = _overrides(round)
     out = _crop_dir(round)
@@ -122,7 +127,7 @@ def _crops(round: Round, labels) -> dict[tuple[int, int], Image.Image]:
 
 def unturned(round: Round) -> list[str]:
     """Photos whose Crop shows no logo to turn by, so they keep the angle they were shot at."""
-    labels = [r for r in Labels.load(round).rows if r.status in USED and r.plate is not None]
+    labels = _used(round)
     cached = _cached(round, labels)
     turns = logo_turns({k: im for k, (_, im) in cached.items()})
     return sorted(photo for k, (photo, _) in cached.items() if turns[k] is None)
@@ -139,7 +144,7 @@ def _crops_sheet(round: Round, labels) -> Image.Image:
 
 def table(round: Round) -> list[Path]:
     key = _key(round)
-    labels = [r for r in Labels.load(round).rows if r.status in USED and r.plate in key]
+    labels = _used(round)
     crops = _crops(round, labels)
     days = list(range(max((r.day for r in labels), default=0) + 1))
     out = round.folder / TABLES
