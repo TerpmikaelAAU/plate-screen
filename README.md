@@ -1,6 +1,6 @@
 # plate-screen
 
-Turns daily phone photos of an antibiotic screening into one image per strain: a table with a row per plate (condition × replicate) and a column per day, each cell the dish cropped onto black.
+Turns daily phone photos of an antibiotic screening into one image per strain: a table with a row per plate (condition × replicate) and a column per day, each cell the dish cropped onto black and turned so the logo moulded into the dish sits at the bottom.
 
 Each plate is photographed every day beside a sticky note with its plate number; a key maps plate numbers to strain, condition and replicate. The fixed work (sorting by date, finding the dish, drawing tables) is code. Reading handwriting is done by Claude Code through the bundled skill, with every reading written to a CSV a person can check.
 

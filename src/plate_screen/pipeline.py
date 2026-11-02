@@ -5,6 +5,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from .align import logo_turns
 from .check import check as check_labels
 from .crop import Circle, crop_plate, find_dish
 from .key import Key, Plate
@@ -100,13 +101,31 @@ def crop(round: Round) -> list[str]:
     return failed
 
 
-def _crops(round: Round, labels) -> dict[tuple[int, int], Image.Image]:
-    crops = {}
+def _cached(round: Round, labels) -> dict[tuple[int, int], tuple[str, Image.Image]]:
+    found = {}
     for r in labels:
         path = _crop_dir(round) / r.photo
         if path.exists():
-            crops[(r.plate, r.day)] = Image.open(path)
-    return crops
+            found[(r.plate, r.day)] = (r.photo, Image.open(path))
+    return found
+
+
+def _crops(round: Round, labels) -> dict[tuple[int, int], Image.Image]:
+    """Cached Crops, each turned so the logo moulded into the dish sits at the bottom; left as they are where none is found."""
+    cached = _cached(round, labels)
+    turns = logo_turns({k: im for k, (_, im) in cached.items()})
+    return {
+        k: im if turns[k] is None else im.rotate(turns[k], resample=Image.Resampling.BICUBIC)
+        for k, (_, im) in cached.items()
+    }
+
+
+def unturned(round: Round) -> list[str]:
+    """Photos whose Crop shows no logo to turn by, so they keep the angle they were shot at."""
+    labels = [r for r in Labels.load(round).rows if r.status in USED and r.plate is not None]
+    cached = _cached(round, labels)
+    turns = logo_turns({k: im for k, (_, im) in cached.items()})
+    return sorted(photo for k, (photo, _) in cached.items() if turns[k] is None)
 
 
 def _crops_sheet(round: Round, labels) -> Image.Image:
