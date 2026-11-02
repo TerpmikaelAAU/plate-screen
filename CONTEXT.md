@@ -59,7 +59,7 @@ A Photo with no readable Sticky note; left out of the Table until someone labels
 A second Photo of the same Plate on the same Day; left out of the Table until someone picks one.
 
 **Crop**:
-The part of a Photo showing just the Plate.
+The part of a Photo showing just the Plate, turned so the logo moulded into the dish sits at the bottom, where one is found.
 
 **Table**:
 The composite image for one Strain: one row per Condition and Replicate, one column per Day, each cell a Crop.

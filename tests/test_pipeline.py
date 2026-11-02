@@ -53,6 +53,13 @@ def test_a_photo_with_no_dish_is_reported_and_can_be_cropped_by_hand(photo, roun
     assert pipeline.crop(r) == []
 
 
+def test_crops_with_no_logo_found_are_reported(photo, round_dir):
+    r = make_round(photo, round_dir, days=1)
+    pipeline.label(r)
+    pipeline.crop(r)
+    assert pipeline.unturned(r) == ["d0_p1.jpg", "d0_p2.jpg", "d0_p3.jpg"]
+
+
 def test_unlabelled_photos_are_not_cropped(photo, round_dir):
     r = make_round(photo, round_dir, days=1)
     pipeline.label(r)

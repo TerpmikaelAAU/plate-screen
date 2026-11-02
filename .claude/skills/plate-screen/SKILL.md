@@ -48,5 +48,6 @@ Run `run`. Look at `Review/crops.jpg`: each row is one Plate across Days, so a w
 
 - A Photo listed as "no dish found", or a bad Crop: open the Photo, estimate the dish centre and radius in Photo pixels, add `photo,x,y,r` to `crop_overrides.csv`, rerun `run`.
 - A dish that jumps: go back to step 3 for that Photo.
+- A Photo listed as "no logo found": its Crop keeps the angle it was shot at. Tell the user.
 
 **Done when** `crops.jpg` shows every Plate continuous across Days, and the `Tables/<Strain>.jpg` files are written. Give the user the printed `![[…]]` embed lines and list every `unlabelled` Photo and every gap.

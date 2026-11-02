@@ -5,10 +5,11 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from .align import logo_turns
 from .check import check as check_labels
 from .crop import Circle, crop_plate, find_dish
 from .key import Key, Plate
-from .labels import Labels
+from .labels import Label, Labels
 from .round import Move, Round
 from .table import font, render_table, table_name
 
@@ -71,13 +72,18 @@ def _overrides(round: Round) -> dict[str, Circle]:
         return {r["photo"]: (float(r["x"]), float(r["y"]), float(r["r"])) for r in csv.DictReader(f)}
 
 
+def _used(round: Round) -> list[Label]:
+    """Labels whose Photos go into Crops and Tables. The same set every time, as each Crop's turn depends on the rest."""
+    return [r for r in Labels.load(round).rows if r.status in USED and r.plate is not None]
+
+
 def _crop_dir(round: Round) -> Path:
     return round.folder / REVIEW / "crops"
 
 
 def crop(round: Round) -> list[str]:
     """Crop every labelled Photo (cached in Review/crops) and draw Review/crops.jpg. Returns Photos with no dish found."""
-    labels = [r for r in Labels.load(round).rows if r.status in USED and r.plate is not None]
+    labels = _used(round)
     paths = {p.name: p.path for p in round.photos()}
     overrides = _overrides(round)
     out = _crop_dir(round)
@@ -100,13 +106,31 @@ def crop(round: Round) -> list[str]:
     return failed
 
 
-def _crops(round: Round, labels) -> dict[tuple[int, int], Image.Image]:
-    crops = {}
+def _cached(round: Round, labels) -> dict[tuple[int, int], tuple[str, Image.Image]]:
+    found = {}
     for r in labels:
         path = _crop_dir(round) / r.photo
         if path.exists():
-            crops[(r.plate, r.day)] = Image.open(path)
-    return crops
+            found[(r.plate, r.day)] = (r.photo, Image.open(path))
+    return found
+
+
+def _crops(round: Round, labels) -> dict[tuple[int, int], Image.Image]:
+    """Cached Crops, each turned so the logo moulded into the dish sits at the bottom; left as they are where none is found."""
+    cached = _cached(round, labels)
+    turns = logo_turns({k: im for k, (_, im) in cached.items()})
+    return {
+        k: im if turns[k] is None else im.rotate(turns[k], resample=Image.Resampling.BICUBIC)
+        for k, (_, im) in cached.items()
+    }
+
+
+def unturned(round: Round) -> list[str]:
+    """Photos whose Crop shows no logo to turn by, so they keep the angle they were shot at."""
+    labels = _used(round)
+    cached = _cached(round, labels)
+    turns = logo_turns({k: im for k, (_, im) in cached.items()})
+    return sorted(photo for k, (photo, _) in cached.items() if turns[k] is None)
 
 
 def _crops_sheet(round: Round, labels) -> Image.Image:
@@ -120,9 +144,9 @@ def _crops_sheet(round: Round, labels) -> Image.Image:
 
 def table(round: Round) -> list[Path]:
     key = _key(round)
-    labels = [r for r in Labels.load(round).rows if r.status in USED and r.plate in key]
+    labels = _used(round)
     crops = _crops(round, labels)
-    days = list(range(max((r.day for r in labels), default=0) + 1))
+    days = list(range(max((r.day for r in labels if r.plate in key), default=0) + 1))
     out = round.folder / TABLES
     out.mkdir(exist_ok=True)
     written = []

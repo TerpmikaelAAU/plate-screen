@@ -49,6 +49,8 @@ def main(argv: list[str] | None = None) -> int:
     failed = pipeline.crop(round)
     for f in failed:
         print(f"! no dish found in {f}; add it to {pipeline.OVERRIDES_FILE} (photo,x,y,r)")
+    for f in pipeline.unturned(round):
+        print(f"! no logo found in {f}; its Crop keeps the angle it was shot at")
     print(f"look over the Crops in {round.folder / pipeline.REVIEW / 'crops.jpg'}")
     if args.step == "crop":
         return 1 if failed else 0
