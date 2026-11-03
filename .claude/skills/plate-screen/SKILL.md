@@ -1,6 +1,6 @@
 ---
 name: plate-screen
-description: Turn a folder of daily plate Photos from an antibiotic screening Round (each Plate shot beside a numbered Sticky note) into Tables of cropped plates per Strain. Use when the user has a new Round to sort, label, crop or tabulate, or a Key photo to transcribe.
+description: Turn a folder of daily plate Photos from an antibiotic screening Round (each Plate shot beside a numbered Sticky note) into Tables of cropped plates per Strain. Also measures Colony Diameters and Growth rates. Use when the user has a new Round to sort, label, crop or tabulate, a Key photo to transcribe, or Colonies to measure.
 ---
 
 # Plate screen
@@ -51,3 +51,16 @@ Run `run`. Look at `Review/crops.jpg`: each row is one Plate across Days, so a w
 - A Photo listed as "no logo found": its Crop keeps the angle it was shot at. Tell the user.
 
 **Done when** `crops.jpg` shows every Plate continuous across Days, and the `Tables/<Strain>.jpg` files are written. Give the user the printed `![[…]]` embed lines and list every `unlabelled` Photo and every gap.
+
+## 6. Measure
+
+Only when the user asks for Colony Diameters or Growth rates. Run `measure`. It writes `Measurements/` and draws every Crop's Outlines into `Review/`: `outlines_<Strain>.jpg` (a Table with Outlines), `flagged_NN.jpg` (Crops waiting for review: plain beside the candidates A, B, C) and `decided_NN.jpg` (Crops the code settled).
+
+Review with subagents, a few sheets each, giving them the brief by path:
+
+- every `flagged_NN.jpg` to a Sonnet subagent with [review-flagged.md](review-flagged.md);
+- every `decided_NN.jpg` to a Haiku subagent with [review-decided.md](review-decided.md).
+
+Before fanning out on a new kind of Plate, run one Sonnet subagent on one sheet and compare its answers with your own reading; tighten the brief where it disagrees. Map each answer's `pN DN` to its Photo through `Measurements/diameters.csv` and draft `measure_overrides.csv` (`photo,outline,satellites,note`; `outline` is A, B, C, `empty`, `none`, or blank for a note only). For a decided Crop that Haiku calls wrong, open it yourself and pick the right candidate or `none`.
+
+Show the user the draft with the sheets it refers to, and write it only once they agree. Rerun `measure`: overrides change the shrink and replicate checks of the neighbouring Days, so review only the newly flagged Crops once more, then stop. **Done when** every flagged Crop has a reviewed choice or is reported to the user, and the user has the plots in `Measurements/`.

@@ -16,3 +16,5 @@ wheels/
 key.csv
 labels.csv
 crop_overrides.csv
+measure_overrides.csv
+Measurements/

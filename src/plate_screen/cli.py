@@ -20,6 +20,7 @@ def main(argv: list[str] | None = None) -> int:
         ("crop", "cut each dish out onto black and draw Review/crops.jpg"),
         ("table", "write Tables/<Strain>.jpg"),
         ("run", "check, crop and table in one go"),
+        ("measure", "measure each Colony into Measurements/ and draw its Outlines into Review/"),
     ]:
         step = steps.add_parser(name, help=help)
         step.add_argument("round", type=Path, help="the Round folder")
@@ -33,6 +34,14 @@ def main(argv: list[str] | None = None) -> int:
         for m in moves:
             print(f"{'would move' if args.dry_run else 'moved'} {m.src.relative_to(round.folder)} -> {m.dest.relative_to(round.folder)}")
         print(f"{len(moves)} Photos {'to move' if args.dry_run else 'moved'}")
+        return 0
+    if args.step == "measure":
+        m = pipeline.measure(round)
+        waiting = [r for r in m.readings if not r.outline]
+        print(f"{len(m.readings) - len(waiting)} of {len(m.readings)} Crops measured, {len(waiting)} flagged for review")
+        for path in m.sheets + m.figures:
+            print(f"wrote {path}")
+        print(f"Diameters in {m.diameters}; review choices go in {pipeline.MEASURE_OVERRIDES_FILE} (photo,outline,satellites,note)")
         return 0
     if args.step == "label":
         labels = pipeline.label(round)

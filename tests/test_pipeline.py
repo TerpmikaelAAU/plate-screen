@@ -1,3 +1,4 @@
+import csv
 from datetime import datetime
 
 from PIL import Image
@@ -72,3 +73,27 @@ def test_unlabelled_photos_are_not_cropped(photo, round_dir):
 def test_notebook_embed_is_relative_to_the_notebook(tmp_path, photo, round_dir):
     (tmp_path / ".terpnotes").mkdir()
     assert pipeline.embed(round_dir / "Tables" / "St06.jpg") == "![[round/Tables/St06.jpg]]"
+
+
+def test_measure_writes_diameters_review_sheets_and_plots(photo, round_dir):
+    r = make_round(photo, round_dir, days=3)
+    pipeline.label(r)
+    pipeline.crop(r)
+    pipeline.measure(r)
+    out = round_dir / "Measurements"
+    assert sorted(p.name for p in out.iterdir()) == [
+        "St06.png", "St07.png", "diameters.csv", "growth.csv", "summary.csv", "summary.png",
+    ]
+    rows = list(csv.DictReader(open(out / "diameters.csv")))
+    assert [(x["plate"], x["day"]) for x in rows] == [(p, d) for p in "123" for d in "12"]  # Day 0 is the reference
+    assert {(p.name) for p in (round_dir / "Review").glob("outlines_*.jpg")} == {"outlines_St06.jpg", "outlines_St07.jpg"}
+
+
+def test_a_reviewed_outline_and_satellites_are_kept(photo, round_dir):
+    r = make_round(photo, round_dir, days=2)
+    pipeline.label(r)
+    pipeline.crop(r)
+    (round_dir / "measure_overrides.csv").write_text("photo,outline,satellites,note\nd1_p2.jpg,none,2,smudge\n")
+    rows = {x["photo"]: x for x in csv.DictReader(open(pipeline.measure(r).diameters))}
+    assert (rows["d1_p2.jpg"]["outline"], rows["d1_p2.jpg"]["diameter_mm"]) == ("none", "")
+    assert (rows["d1_p2.jpg"]["satellites"], rows["d1_p2.jpg"]["note"]) == ("2", "smudge")

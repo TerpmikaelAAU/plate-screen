@@ -64,3 +64,22 @@ The part of a Photo showing just the Plate, turned so the logo moulded into the 
 **Table**:
 The composite image for one Strain: one row per Condition and Replicate, one column per Day, each cell a Crop.
 _Avoid_: Matrix, composite, grid
+
+### Growth
+
+**Colony**:
+The mycelium growing out from the inoculation point of a Plate. A pigment halo in the agar around it is not part of the Colony.
+_Avoid_: Growth, spot
+
+**Satellite**:
+A separate small colony on a Plate, away from the Colony; counted, not measured.
+
+**Outline**:
+The traced edge of the Colony in one Crop. Each Crop gets three candidate Outlines, A (traced from the last Day back, reluctant to grow past the next Day's), B (traced on its own Day only) and C (as A, but only where the agar outside is unchanged), and review chooses one, or none.
+
+**Diameter**:
+The diameter of the circle with the same area as the Colony's Outline, in mm. Measured from Day 1; Day 0 shows only the inoculum.
+_Avoid_: Size, width
+
+**Growth rate**:
+How fast the Diameter of one Plate increases, in mm per Day, over the same early Days for every Plate of a Round (up to Day 4, and only before the Colony reaches the rim), timed by when each Photo was taken.
