@@ -29,7 +29,7 @@ def test_disagreeing_candidates_are_left_for_review():
     assert r.flags == ["candidates differ"]
 
 
-@pytest.mark.parametrize("choice, outline, diameter", [("B", "B", 35), ("empty", "empty", 0.0), ("none", "none", None)])
+@pytest.mark.parametrize("choice, outline, diameter", [("B", "B", 35), ("empty", "empty", 0.0), ("none", "none", None), ("rim", "rim", None)])
 def test_a_reviewed_choice_settles_the_diameter(choice, outline, diameter):
     [r] = read([cell(2, disc(20), disc(35), choice=choice)])
     assert (r.outline, r.diameter) == (outline, diameter)
@@ -60,6 +60,12 @@ def test_growth_rate_is_fitted_before_the_colony_reaches_the_rim():
     [g] = growth_rates(read(days))
     assert g.rate == pytest.approx(10)
     assert g.days == [1, 2, 3, 4]
+
+
+def test_growth_rate_stops_where_the_review_says_the_colony_reached_the_rim():
+    days = [cell(1, disc(10)), cell(2, disc(20)), cell(3, disc(50), choice="rim"), cell(4, disc(35))]
+    [g] = growth_rates(read(days))
+    assert g.days == [1, 2]
 
 
 def test_growth_rate_is_fitted_on_the_same_days_for_every_plate():

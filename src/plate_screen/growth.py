@@ -10,7 +10,8 @@ from .key import Plate
 from .measure import DISH_MM, Outline
 
 CONTROL = "Vogel"  # the Condition every other Condition of a Strain is compared with
-CHOICES = ("A", "B", "C", "empty", "none")  # empty: no Colony (0 mm); none: no candidate is right (no Diameter)
+CHOICES = ("A", "B", "C", "empty", "none", "rim")
+# empty: no Colony (0 mm); none: no candidate is right (no Diameter); rim: the Colony has reached the dish wall (no Diameter)
 AGREE_MM = 2.0  # candidates closer than this agree
 SHRINK_MM = 1.0  # a Diameter may fall this much from one Day to the next before it is doubted
 REPLICATE_MM, REPLICATE_SHARE = 3.0, 0.25  # a Replicate is doubted further than both of these from the median
@@ -125,6 +126,8 @@ def growth_rates(readings: list[Reading]) -> list[Growth]:
         rs.sort(key=lambda r: r.cell.day)
         fit = []
         for r in rs:
+            if r.outline == "rim":
+                break
             if r.diameter is None or r.cell.day > FIT_DAYS:
                 continue
             if r.diameter >= FIT_SHARE * DISH_MM or (r.chosen is not None and r.chosen.at_rim):

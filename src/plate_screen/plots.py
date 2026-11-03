@@ -9,10 +9,12 @@ import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 
 from .growth import CONTROL, Growth, Reading, Summary  # noqa: E402
+from .measure import DISH_MM, LIMIT  # noqa: E402
 
 # Categorical slots in fixed order; a Condition keeps its colour in every figure of a Round
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 SURFACE, INK, INK_2, RULE = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
+RIM_MM = LIMIT * DISH_MM  # as far out as an Outline reaches: a Colony at the rim is drawn here
 
 
 def colours(conditions: list[str]) -> dict[str, str]:
@@ -51,7 +53,27 @@ def _label_ends(ax, ends: list) -> None:
             if abs(end[0] - below[0]) <= 2 and end[1] - below[1] < gap:
                 end[1] = below[1] + gap
     for x, y, text in ends:
-        ax.annotate(text, (x, y), xytext=(6, 0), textcoords="offset points", va="center", fontsize=9, color=INK)
+        ax.annotate(text, (x, y), xytext=(6, 0), textcoords="offset points", va="center", fontsize=9, color=INK,
+                    bbox=dict(facecolor=SURFACE, edgecolor="none", pad=1))
+
+
+def _size(r: Reading) -> float | None:
+    return RIM_MM if r.outline == "rim" else r.diameter
+
+
+def means(readings: list[Reading]) -> list[tuple[int, float, bool]]:
+    """The mean Diameter per Day of one Condition's Replicates, from those measured that Day, and whether every
+    Replicate was. When every Replicate has reached the rim, the mean is on the rim."""
+    plates = {r.cell.plate.number for r in readings}
+    out = []
+    for day in sorted({r.cell.day for r in readings}):
+        mine = [r for r in readings if r.cell.day == day]
+        measured = [r.diameter for r in mine if r.diameter is not None]
+        if measured:
+            out.append((day, sum(measured) / len(measured), len(measured) == len(plates)))
+        elif len(mine) == len(plates) and all(r.outline == "rim" for r in mine):
+            out.append((day, RIM_MM, True))
+    return out
 
 
 def strain_figure(strain: str, readings: list[Reading], growth: list[Growth], summary: list[Summary], colour: dict) -> plt.Figure:
@@ -60,28 +82,31 @@ def strain_figure(strain: str, readings: list[Reading], growth: list[Growth], su
     fig, (left, right) = plt.subplots(1, 2, figsize=(11, 4.2), gridspec_kw={"width_ratios": [3, 2]}, facecolor=SURFACE)
     conditions = list(dict.fromkeys(r.cell.plate.condition for r in readings if r.cell.plate.strain == strain))
     ends = []  # where each mean line stops, for its label
+    partial = False  # any mean missing a Replicate
 
     for condition in conditions:
         mine = [r for r in readings if r.cell.plate.strain == strain and r.cell.plate.condition == condition]
         by_plate: dict[int, list[Reading]] = {}
         for r in mine:
-            if r.diameter is not None:
+            if _size(r) is not None:
                 by_plate.setdefault(r.cell.plate.number, []).append(r)
         for rs in by_plate.values():
             rs.sort(key=lambda r: r.cell.day)
-            left.plot([r.cell.day for r in rs], [r.diameter for r in rs], color=colour[condition], linewidth=1, alpha=0.35)
-        # The mean only on Days every Replicate has a Diameter, so a missing one doesn't make it jump
-        plates = {r.cell.plate.number for r in mine}
-        on = {}
-        for rs in by_plate.values():
-            for r in rs:
-                on.setdefault(r.cell.day, []).append(r.diameter)
-        days = sorted(d for d, ds in on.items() if len(ds) == len(plates))
-        means = [sum(on[d]) / len(on[d]) for d in days]
-        if days:
-            left.plot(days, means, color=colour[condition], linewidth=2, marker="o", markersize=5)
-            ends.append([days[-1], means[-1], short(condition)])
+            left.plot([r.cell.day for r in rs], [_size(r) for r in rs], color=colour[condition], linewidth=1, alpha=0.35)
+        # Open markers on Days the mean is missing a Replicate
+        points = means(mine)
+        if points:
+            days, sizes, full = zip(*points)
+            partial = partial or not all(full)
+            left.plot(days, sizes, color=colour[condition], linewidth=2, zorder=3)
+            left.scatter(days, sizes, s=30, zorder=4, color=[colour[condition] if f else SURFACE for f in full],
+                         edgecolor=colour[condition], linewidth=1.5)
+            ends.append([days[-1], sizes[-1], short(condition)])
     _style(left)
+    if any(r.outline == "rim" for r in readings if r.cell.plate.strain == strain):
+        left.axhline(RIM_MM, color=INK_2, linewidth=1, linestyle=(0, (4, 3)), zorder=1)
+        left.annotate("dish rim", (0, RIM_MM), xycoords=("axes fraction", "data"), xytext=(4, 4), textcoords="offset points",
+                      fontsize=8, color=INK_2)
     left.set_xlabel("Day", color=INK_2)
     left.set_ylabel("Diameter (mm)", color=INK_2)
     left.set_ylim(bottom=0)
@@ -108,8 +133,12 @@ def strain_figure(strain: str, readings: list[Reading], growth: list[Growth], su
     fig.suptitle(strain, x=0.06, ha="left", fontsize=13, color=INK)
     # Every Condition in the legend, also one with no Day where all its Replicates have a Diameter
     handles = [Line2D([], [], color=colour[c], linewidth=2, marker="o", markersize=5) for c in conditions]
+    labels = list(conditions)
+    if partial:
+        handles.append(Line2D([], [], color=INK_2, linewidth=0, marker="o", markersize=5, markerfacecolor=SURFACE))
+        labels.append("mean of fewer Replicates")
     if handles:
-        fig.legend(handles, conditions, loc="upper right", ncol=len(handles), frameon=False, fontsize=9)
+        fig.legend(handles, labels, loc="upper right", ncol=len(handles), frameon=False, fontsize=9)
     fig.tight_layout(rect=(0, 0, 1, 0.92))
     return fig
 
