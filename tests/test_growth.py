@@ -95,9 +95,11 @@ def test_days_before_the_colony_shows_count_at_its_first_size(shows, sizes, rate
 
 
 def test_a_later_colony_never_grows_faster_than_an_earlier_one():
-    rates = [growth_rates(read([cell(d, None, None, None) for d in range(1, shows)] + [cell(shows, disc(15))]))[0].rate
+    # Both grow 5 mm a Day once they show
+    rates = [growth_rates(read([cell(d, None, None, None) for d in range(1, shows)] +
+                               [cell(d, disc(15 + 5 * (d - shows))) for d in range(shows, 5)]))[0].rate
              for shows in (2, 3)]
-    assert rates[0] >= rates[1]
+    assert rates[0] > rates[1]
 
 
 def test_a_plate_that_never_grows_has_no_growth():

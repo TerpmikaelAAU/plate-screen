@@ -35,8 +35,8 @@ class Cell:
 @dataclass
 class Reading:
     cell: Cell
-    outline: str  # the chosen candidate, empty or none; "" while undecided
-    diameter: float | None  # mm; None until decided, or when no candidate is right
+    outline: str  # the chosen candidate, empty, none or rim; "" while undecided
+    diameter: float | None  # mm; None until decided, when no candidate is right, or at the rim
     flags: list[str] = field(default_factory=list)
 
     @property

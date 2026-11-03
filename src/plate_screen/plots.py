@@ -62,17 +62,14 @@ def _size(r: Reading) -> float | None:
 
 
 def means(readings: list[Reading]) -> list[tuple[int, float, bool]]:
-    """The mean Diameter per Day of one Condition's Replicates, from those measured that Day, and whether every
-    Replicate was. When every Replicate has reached the rim, the mean is on the rim."""
+    """The mean Diameter per Day of one Condition's Replicates, from those measured that Day (one at the rim counts at
+    the rim), and whether every Replicate was."""
     plates = {r.cell.plate.number for r in readings}
     out = []
     for day in sorted({r.cell.day for r in readings}):
-        mine = [r for r in readings if r.cell.day == day]
-        measured = [r.diameter for r in mine if r.diameter is not None]
-        if measured:
-            out.append((day, sum(measured) / len(measured), len(measured) == len(plates)))
-        elif len(mine) == len(plates) and all(r.outline == "rim" for r in mine):
-            out.append((day, RIM_MM, True))
+        sizes = [_size(r) for r in readings if r.cell.day == day and _size(r) is not None]
+        if sizes:
+            out.append((day, sum(sizes) / len(sizes), len(sizes) == len(plates)))
     return out
 
 

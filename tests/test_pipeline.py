@@ -101,6 +101,15 @@ def test_a_reviewed_outline_and_satellites_are_kept(photo, round_dir):
     assert (rows["d1_p3.jpg"]["satellites"], rows["d1_p3.jpg"]["note"]) == ("1", "")
 
 
+def test_a_colony_at_the_rim_has_no_diameter(photo, round_dir):
+    r = make_round(photo, round_dir, days=2)
+    pipeline.label(r)
+    pipeline.crop(r)
+    (round_dir / "measure_overrides.csv").write_text("photo,outline,satellites,note\nd1_p2.jpg,rim,0,\n")
+    rows = {x["photo"]: x for x in csv.DictReader(open(pipeline.measure(r).diameters))}
+    assert (rows["d1_p2.jpg"]["outline"], rows["d1_p2.jpg"]["diameter_mm"], rows["d1_p2.jpg"]["at_rim"]) == ("rim", "", "1")
+
+
 def test_an_override_for_a_photo_not_in_the_round_is_an_error(photo, round_dir):
     r = make_round(photo, round_dir, days=2)
     pipeline.label(r)
@@ -117,6 +126,9 @@ def test_a_condition_left_out_is_not_measured_and_its_overrides_wait(photo, roun
     (round_dir / "measure_leave_out.txt").write_text("Vogel + 200 µg/mL Hyg\n")
     (round_dir / "measure_overrides.csv").write_text("photo,outline,satellites,note\nd1_p3.jpg,A,0,\n")
     m = pipeline.measure(r)
+    (round_dir / "measure_overrides.csv").write_text("photo,outline,satellites,note\nd0_p3.jpg,A,0,\n")
+    with pytest.raises(ValueError, match="d0_p3.jpg"):
+        pipeline.measure(r)
     assert {x["plate"] for x in csv.DictReader(open(m.diameters))} == {"1", "2"}
     assert {s.condition for s in m.summary} == {"Vogel"}
     assert not (round_dir / "Measurements" / "St07.png").exists()

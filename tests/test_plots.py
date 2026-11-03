@@ -12,6 +12,11 @@ def test_the_mean_uses_the_replicates_measured_that_day_and_says_when_one_is_mis
     assert means(rs) == [(1, 12.0, True), (2, 20.0, False)]
 
 
+def test_a_replicate_at_the_rim_counts_at_the_rim():
+    rs = [reading(1, 3, "rim", None), reading(2, 3, "A", 40.0)]
+    assert means(rs) == [(3, (RIM_MM + 40) / 2, True)]
+
+
 def test_replicates_that_all_reached_the_rim_put_the_mean_on_it():
     rs = [reading(1, 5, "rim", None), reading(2, 5, "rim", None), reading(1, 6, "rim", None), reading(2, 6, "none", None)]
-    assert means(rs) == [(5, RIM_MM, True)]
+    assert means(rs) == [(5, RIM_MM, True), (6, RIM_MM, False)]

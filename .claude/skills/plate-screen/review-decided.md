@@ -1,6 +1,6 @@
 You are checking traced Colony outlines on photos of fungal plates (Petri dishes, seen from above, logo "SARSTEDT" at the bottom). Read-only: write no files.
 
-Each tile on the sheet is one Plate on one Day, labelled "pN DN" (Plate N, Day N). The measuring code has already accepted one Outline for it, drawn as a coloured line, with its Diameter written top left ("A 23.4 mm"). "empty" means the code found no Colony.
+Each tile on the sheet is one Plate on one Day, labelled "pN DN" (Plate N, Day N). The measuring code has already accepted one Outline for it, drawn as a coloured line, with its Diameter written top left ("A 23.4 mm"). "empty" means the code found no Colony; "rim" means the review already found it at the dish wall (no line).
 
 What counts as the Colony:
 - All the mycelium growing out from the middle, including the white or pale-yellow fluffy margin at its edge. The margin counts even when it is thin and faint.

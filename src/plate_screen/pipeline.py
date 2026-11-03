@@ -243,7 +243,7 @@ def measure(round: Round) -> Measured:
             photo = photos[(plate, d)]
             cells.append(Cell(photo, key[plate], d, outlines[d], overrides.get(photo, {}).get("outline") or None, at.get(photo)))
     # Overrides for a Condition left out stay in the file for when it comes back
-    waiting = {photo for (plate, _), photo in photos.items() if plate not in key.plates()}
+    waiting = {photo for (plate, day), photo in photos.items() if day > 0 and plate in full.plates() and plate not in key.plates()}
     unknown = sorted(set(overrides) - {c.photo for c in cells} - waiting)
     if unknown:
         raise ValueError(f"{MEASURE_OVERRIDES_FILE}: no measured Crop for {', '.join(unknown)}")
@@ -262,7 +262,7 @@ def measure(round: Round) -> Measured:
             [r.cell.photo, p.number, r.cell.day, p.strain, p.condition, p.replicate,
              *(_mm(None if o is None else o.diameter) for o in r.cell.outlines.values()),
              r.outline, _mm(r.diameter), _mm(r.chosen and r.chosen.longest), _mm(r.chosen and r.chosen.shortest),
-             "" if r.chosen is None else int(r.chosen.at_rim), _mm(r.chosen and r.chosen.change),
+             1 if r.outline == "rim" else "" if r.chosen is None else int(r.chosen.at_rim), _mm(r.chosen and r.chosen.change),
              overrides.get(r.cell.photo, {}).get("satellites", ""), "; ".join(r.flags),
              overrides.get(r.cell.photo, {}).get("note", "")]
             for r in readings
