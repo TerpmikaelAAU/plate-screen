@@ -15,7 +15,7 @@ How the candidates usually go wrong:
 
 For each tile, choose:
 - A, B or C: that Outline follows the Colony's edge all the way round, within about 1-2 mm. If two fit, pick the closer one. Be strict: an Outline that cuts across the margin or runs into the agar along any stretch longer than about a tenth of the way round is wrong, even if the rest is perfect.
-- empty: there is no Colony at all.
+- empty: there is no Colony, only the inoculum spot at most (a small pale disc, about 10-18 mm, already there on Day 0).
 - none: no candidate follows the edge (each misses the margin, cuts across, or runs into the agar).
 
 Faint tiles (flag "faint"): a pale disc that may be a thin Colony or just the inoculum spot. Leave the choice blank and say in the note which you think it is and why.

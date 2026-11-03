@@ -82,6 +82,13 @@ def test_growth_rate_leaves_out_days_before_the_colony_shows():
     assert g.days == [2, 3, 4]
 
 
+def test_a_colony_that_shows_on_the_last_fitted_day_still_counts():
+    days = [cell(d, None, None, None) for d in (1, 2, 3)] + [cell(4, disc(3))]
+    [g] = growth_rates(read(days))
+    assert g.days == [1, 2, 3, 4]
+    assert 0 < g.rate < 3
+
+
 def test_a_plate_that_never_grows_has_no_growth():
     [g] = growth_rates(read([cell(d, None, None, None) for d in (1, 2, 3)]))
     assert g.rate == pytest.approx(0)

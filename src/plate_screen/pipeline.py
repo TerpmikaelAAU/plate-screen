@@ -174,9 +174,10 @@ def _measure_overrides(round: Round) -> dict[str, dict[str, str]]:
     with open(path, newline="") as f:
         for r in csv.DictReader(f, restkey="more"):
             # A note with an unquoted comma spills into more fields
-            r["note"] = ",".join([r.get("note") or "", *r.pop("more", [])])
+            r["note"] = ",".join([r.get("note") or "", *r.pop("more", [])]).rstrip(",")
             r = {k: (v or "").strip() for k, v in r.items()}
-            rows[r["photo"]] = r
+            if r["photo"]:
+                rows[r["photo"]] = r
     for photo, r in rows.items():
         if r.get("outline") and r["outline"] not in CHOICES:
             raise ValueError(f"{MEASURE_OVERRIDES_FILE}: {photo} has outline {r['outline']!r}, not one of {', '.join(CHOICES)}")
@@ -213,14 +214,10 @@ def measure(round: Round) -> Measured:
     crops = _crops(round, labels)
     refs = references(crops)
     if not refs:
-        raise ValueError("no Crops to measure: measuring needs a Day 0 Photo of each Plate and `run` done first")
+        raise ValueError("no Crops to measure: measuring needs a Day 0 and a later Photo of each Plate, and `run` done first")
     overrides = _measure_overrides(round)
     day0 = datetime.combine(round.start, time())
     at = {p.name: (p.taken - day0) / timedelta(days=1) for p in round.photos()}
-
-    unknown = sorted(set(overrides) - set(photos.values()))
-    if unknown:
-        raise ValueError(f"{MEASURE_OVERRIDES_FILE}: no labelled Crop for {', '.join(unknown)}")
 
     cells = []
     for plate in key.plates():
@@ -231,6 +228,9 @@ def measure(round: Round) -> Measured:
         for d in days:
             photo = photos[(plate, d)]
             cells.append(Cell(photo, key[plate], d, outlines[d], overrides.get(photo, {}).get("outline") or None, at.get(photo)))
+    unknown = sorted(set(overrides) - {c.photo for c in cells})
+    if unknown:
+        raise ValueError(f"{MEASURE_OVERRIDES_FILE}: no measured Crop for {', '.join(unknown)}")
     readings = read(cells)
     growth = growth_rates(readings)
     rows = summary(growth)
