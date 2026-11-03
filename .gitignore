@@ -17,4 +17,5 @@ key.csv
 labels.csv
 crop_overrides.csv
 measure_overrides.csv
+measure_leave_out.txt
 Measurements/

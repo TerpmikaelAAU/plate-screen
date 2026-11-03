@@ -22,6 +22,7 @@ from .table import font, render_table, table_name
 KEY_FILE = "key.csv"
 OVERRIDES_FILE = "crop_overrides.csv"
 MEASURE_OVERRIDES_FILE = "measure_overrides.csv"
+LEAVE_OUT_FILE = "measure_leave_out.txt"
 REVIEW = "Review"
 TABLES = "Tables"
 MEASUREMENTS = "Measurements"
@@ -30,6 +31,18 @@ USED = ("proposed", "ok")  # unlabelled and duplicate Photos stay out of Crops a
 
 def _key(round: Round) -> Key:
     return Key.load(round.folder / KEY_FILE)
+
+
+def _measured_key(round: Round, key: Key) -> Key:
+    """The Key without the Conditions listed in measure_leave_out.txt, one per line as written in the Key."""
+    path = round.folder / LEAVE_OUT_FILE
+    if not path.exists():
+        return key
+    leave_out = {line.strip() for line in path.read_text().splitlines() if line.strip()}
+    unknown = sorted(leave_out - {key[n].condition for n in key.plates()})
+    if unknown:
+        raise ValueError(f"{LEAVE_OUT_FILE}: no Condition {', '.join(unknown)} in the Key")
+    return Key([key[n] for n in key.plates() if key[n].condition not in leave_out])
 
 
 def sort(round: Round, dry_run: bool = False) -> list[Move]:
@@ -208,7 +221,8 @@ def _write(path: Path, header: list[str], rows: list[list]) -> None:
 def measure(round: Round) -> Measured:
     """Measure the Colony on every Crop after Day 0, write Measurements/ (Diameters, Growth rates, plots), and draw
     the Outlines into Review/ for checking. Rerun after editing measure_overrides.csv."""
-    key = _key(round)
+    full = _key(round)
+    key = _measured_key(round, full)
     labels = _used(round)
     photos = {k: photo for k, (photo, _) in _cached(round, labels).items()}
     crops = _crops(round, labels)
@@ -228,7 +242,9 @@ def measure(round: Round) -> Measured:
         for d in days:
             photo = photos[(plate, d)]
             cells.append(Cell(photo, key[plate], d, outlines[d], overrides.get(photo, {}).get("outline") or None, at.get(photo)))
-    unknown = sorted(set(overrides) - {c.photo for c in cells})
+    # Overrides for a Condition left out stay in the file for when it comes back
+    waiting = {photo for (plate, _), photo in photos.items() if plate not in key.plates()}
+    unknown = sorted(set(overrides) - {c.photo for c in cells} - waiting)
     if unknown:
         raise ValueError(f"{MEASURE_OVERRIDES_FILE}: no measured Crop for {', '.join(unknown)}")
     readings = read(cells)
@@ -281,7 +297,7 @@ def measure(round: Round) -> Measured:
     decided = [(tag(r), [drawn[(r.cell.plate.number, r.cell.day)]]) for r in readings if r.outline]
     written += sheets(flagged, "flagged", review, per_row=2) + sheets(decided, "decided", review, per_row=4)
 
-    colour = plots.colours([key[n].condition for n in key.plates()])
+    colour = plots.colours([full[n].condition for n in full.plates()])  # a Condition keeps its colour when another is left out
     figures = []
     for strain in key.strains():
         path = out / table_name(strain).replace(".jpg", ".png")
