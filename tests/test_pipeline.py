@@ -1,5 +1,7 @@
+import csv
 from datetime import datetime
 
+import pytest
 from PIL import Image
 
 from plate_screen import pipeline
@@ -72,3 +74,70 @@ def test_unlabelled_photos_are_not_cropped(photo, round_dir):
 def test_notebook_embed_is_relative_to_the_notebook(tmp_path, photo, round_dir):
     (tmp_path / ".terpnotes").mkdir()
     assert pipeline.embed(round_dir / "Tables" / "St06.jpg") == "![[round/Tables/St06.jpg]]"
+
+
+def test_measure_writes_diameters_review_sheets_and_plots(photo, round_dir):
+    r = make_round(photo, round_dir, days=3)
+    pipeline.label(r)
+    pipeline.crop(r)
+    pipeline.measure(r)
+    out = round_dir / "Measurements"
+    assert sorted(p.name for p in out.iterdir()) == [
+        "St06.png", "St07.png", "diameters.csv", "growth.csv", "summary.csv", "summary.png",
+    ]
+    rows = list(csv.DictReader(open(out / "diameters.csv")))
+    assert [(x["plate"], x["day"]) for x in rows] == [(p, d) for p in "123" for d in "12"]  # Day 0 is the reference
+    assert {(p.name) for p in (round_dir / "Review").glob("outlines_*.jpg")} == {"outlines_St06.jpg", "outlines_St07.jpg"}
+
+
+def test_a_reviewed_outline_and_satellites_are_kept(photo, round_dir):
+    r = make_round(photo, round_dir, days=2)
+    pipeline.label(r)
+    pipeline.crop(r)
+    (round_dir / "measure_overrides.csv").write_text("photo,outline,satellites,note\nd1_p2.jpg,none,2,smudge, left side\nd1_p3.jpg,,1,,\n")
+    rows = {x["photo"]: x for x in csv.DictReader(open(pipeline.measure(r).diameters))}
+    assert (rows["d1_p2.jpg"]["outline"], rows["d1_p2.jpg"]["diameter_mm"]) == ("none", "")
+    assert (rows["d1_p2.jpg"]["satellites"], rows["d1_p2.jpg"]["note"]) == ("2", "smudge, left side")
+    assert (rows["d1_p3.jpg"]["satellites"], rows["d1_p3.jpg"]["note"]) == ("1", "")
+
+
+def test_a_colony_at_the_rim_has_no_diameter(photo, round_dir):
+    r = make_round(photo, round_dir, days=2)
+    pipeline.label(r)
+    pipeline.crop(r)
+    (round_dir / "measure_overrides.csv").write_text("photo,outline,satellites,note\nd1_p2.jpg,rim,0,\n")
+    rows = {x["photo"]: x for x in csv.DictReader(open(pipeline.measure(r).diameters))}
+    assert (rows["d1_p2.jpg"]["outline"], rows["d1_p2.jpg"]["diameter_mm"], rows["d1_p2.jpg"]["at_rim"]) == ("rim", "", "1")
+
+
+def test_an_override_for_a_photo_not_in_the_round_is_an_error(photo, round_dir):
+    r = make_round(photo, round_dir, days=2)
+    pipeline.label(r)
+    pipeline.crop(r)
+    (round_dir / "measure_overrides.csv").write_text("photo,outline,satellites,note\nd9_p2.jpg,A,0,\nd0_p1.jpg,A,0,\n")
+    with pytest.raises(ValueError, match="d0_p1.jpg, d9_p2.jpg"):
+        pipeline.measure(r)
+
+
+def test_a_condition_left_out_is_not_measured_and_its_overrides_wait(photo, round_dir):
+    r = make_round(photo, round_dir, days=2)
+    pipeline.label(r)
+    pipeline.crop(r)
+    (round_dir / "measure_leave_out.txt").write_text("Vogel + 200 µg/mL Hyg\n")
+    (round_dir / "measure_overrides.csv").write_text("photo,outline,satellites,note\nd1_p3.jpg,A,0,\n")
+    m = pipeline.measure(r)
+    (round_dir / "measure_overrides.csv").write_text("photo,outline,satellites,note\nd0_p3.jpg,A,0,\n")
+    with pytest.raises(ValueError, match="d0_p3.jpg"):
+        pipeline.measure(r)
+    assert {x["plate"] for x in csv.DictReader(open(m.diameters))} == {"1", "2"}
+    assert {s.condition for s in m.summary} == {"Vogel"}
+    assert not (round_dir / "Measurements" / "St07.png").exists()
+
+
+def test_leaving_out_a_condition_not_in_the_key_is_an_error(photo, round_dir):
+    r = make_round(photo, round_dir, days=2)
+    pipeline.label(r)
+    pipeline.crop(r)
+    (round_dir / "measure_leave_out.txt").write_text("Vogel + 500 µg/mL Hyg\n")
+    with pytest.raises(ValueError, match="500 µg/mL Hyg"):
+        pipeline.measure(r)

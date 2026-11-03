@@ -1,27 +1,48 @@
-"""The steps of a Round, in order: sort, label, check, crop, table. Each reads and writes files in the Round folder."""
+"""The steps of a Round, in order: sort, label, check, crop, table, measure. Each reads and writes files in the Round folder."""
 
 import csv
+from dataclasses import dataclass
+from datetime import datetime, time, timedelta
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
 from .align import logo_turns
+from . import plots
 from .check import check as check_labels
 from .crop import Circle, crop_plate, find_dish
+from .growth import CHOICES, Cell, Growth, Reading, Summary, growth_rates, read, summary
 from .key import Key, Plate
 from .labels import Label, Labels
+from .measure import measure_plate, references
+from .review import annotated, sheets
 from .round import Move, Round
 from .table import font, render_table, table_name
 
 KEY_FILE = "key.csv"
 OVERRIDES_FILE = "crop_overrides.csv"
+MEASURE_OVERRIDES_FILE = "measure_overrides.csv"
+LEAVE_OUT_FILE = "measure_leave_out.txt"
 REVIEW = "Review"
 TABLES = "Tables"
+MEASUREMENTS = "Measurements"
 USED = ("proposed", "ok")  # unlabelled and duplicate Photos stay out of Crops and Tables
 
 
 def _key(round: Round) -> Key:
     return Key.load(round.folder / KEY_FILE)
+
+
+def _measured_key(round: Round, key: Key) -> Key:
+    """The Key without the Conditions listed in measure_leave_out.txt, one per line as written in the Key."""
+    path = round.folder / LEAVE_OUT_FILE
+    if not path.exists():
+        return key
+    leave_out = {line.strip() for line in path.read_text().splitlines() if line.strip()}
+    unknown = sorted(leave_out - {key[n].condition for n in key.plates()})
+    if unknown:
+        raise ValueError(f"{LEAVE_OUT_FILE}: no Condition {', '.join(unknown)} in the Key")
+    return Key([key[n] for n in key.plates() if key[n].condition not in leave_out])
 
 
 def sort(round: Round, dry_run: bool = False) -> list[Move]:
@@ -155,6 +176,137 @@ def table(round: Round) -> list[Path]:
         render_table(key, strain, crops, days, title=f"{strain}  ·  {round.folder.name}").save(path, quality=90)
         written.append(path)
     return written
+
+
+def _measure_overrides(round: Round) -> dict[str, dict[str, str]]:
+    """The review's say per Photo: which Outline is right (blank to leave it to the measuring), Satellites, a note."""
+    path = round.folder / MEASURE_OVERRIDES_FILE
+    if not path.exists():
+        return {}
+    rows = {}
+    with open(path, newline="") as f:
+        for r in csv.DictReader(f, restkey="more"):
+            # A note with an unquoted comma spills into more fields
+            r["note"] = ",".join([r.get("note") or "", *r.pop("more", [])]).rstrip(",")
+            r = {k: (v or "").strip() for k, v in r.items()}
+            if r["photo"]:
+                rows[r["photo"]] = r
+    for photo, r in rows.items():
+        if r.get("outline") and r["outline"] not in CHOICES:
+            raise ValueError(f"{MEASURE_OVERRIDES_FILE}: {photo} has outline {r['outline']!r}, not one of {', '.join(CHOICES)}")
+    return rows
+
+
+@dataclass
+class Measured:
+    readings: list[Reading]
+    growth: list[Growth]
+    summary: list[Summary]
+    diameters: Path
+    sheets: list[Path]  # Review/outlines_<Strain>.jpg, then the flagged and decided sheets for review
+    figures: list[Path]
+
+
+def _mm(x: float | None) -> str:
+    return "" if x is None else f"{x:.1f}"
+
+
+def _write(path: Path, header: list[str], rows: list[list]) -> None:
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(header)
+        w.writerows(rows)
+
+
+def measure(round: Round) -> Measured:
+    """Measure the Colony on every Crop after Day 0, write Measurements/ (Diameters, Growth rates, plots), and draw
+    the Outlines into Review/ for checking. Rerun after editing measure_overrides.csv."""
+    full = _key(round)
+    key = _measured_key(round, full)
+    labels = _used(round)
+    photos = {k: photo for k, (photo, _) in _cached(round, labels).items()}
+    crops = _crops(round, labels)
+    refs = references(crops)
+    if not refs:
+        raise ValueError("no Crops to measure: measuring needs a Day 0 and a later Photo of each Plate, and `run` done first")
+    overrides = _measure_overrides(round)
+    day0 = datetime.combine(round.start, time())
+    at = {p.name: (p.taken - day0) / timedelta(days=1) for p in round.photos()}
+
+    cells = []
+    for plate in key.plates():
+        days = sorted(d for p, d in refs if p == plate)
+        if not days:
+            continue
+        outlines = measure_plate({d: crops[(plate, d)] for d in days}, {d: refs[(plate, d)] for d in days})
+        for d in days:
+            photo = photos[(plate, d)]
+            cells.append(Cell(photo, key[plate], d, outlines[d], overrides.get(photo, {}).get("outline") or None, at.get(photo)))
+    # Overrides for a Condition left out stay in the file for when it comes back
+    waiting = {photo for (plate, day), photo in photos.items() if day > 0 and plate in full.plates() and plate not in key.plates()}
+    unknown = sorted(set(overrides) - {c.photo for c in cells} - waiting)
+    if unknown:
+        raise ValueError(f"{MEASURE_OVERRIDES_FILE}: no measured Crop for {', '.join(unknown)}")
+    readings = read(cells)
+    growth = growth_rates(readings)
+    rows = summary(growth)
+
+    out = round.folder / MEASUREMENTS
+    out.mkdir(exist_ok=True)
+    diameters = out / "diameters.csv"
+    _write(
+        diameters,
+        ["photo", "plate", "day", "strain", "condition", "replicate", "A_mm", "B_mm", "C_mm", "outline",
+         "diameter_mm", "longest_mm", "shortest_mm", "at_rim", "change", "satellites", "flags", "note"],
+        [
+            [r.cell.photo, p.number, r.cell.day, p.strain, p.condition, p.replicate,
+             *(_mm(None if o is None else o.diameter) for o in r.cell.outlines.values()),
+             r.outline, _mm(r.diameter), _mm(r.chosen and r.chosen.longest), _mm(r.chosen and r.chosen.shortest),
+             1 if r.outline == "rim" else "" if r.chosen is None else int(r.chosen.at_rim), _mm(r.chosen and r.chosen.change),
+             overrides.get(r.cell.photo, {}).get("satellites", ""), "; ".join(r.flags),
+             overrides.get(r.cell.photo, {}).get("note", "")]
+            for r in readings
+            for p in [r.cell.plate]
+        ],
+    )
+    _write(
+        out / "growth.csv",
+        ["plate", "strain", "condition", "replicate", "rate_mm_per_day", "days"],
+        [[g.plate.number, g.plate.strain, g.plate.condition, g.plate.replicate,
+          "" if g.rate is None else f"{g.rate:.2f}", " ".join(map(str, g.days))] for g in growth],
+    )
+    _write(
+        out / "summary.csv",
+        ["strain", "condition", "plates", "rate_mm_per_day", "sd", "percent_of_vogel"],
+        [[s.strain, s.condition, s.plates, "" if s.rate is None else f"{s.rate:.2f}",
+          "" if s.spread is None else f"{s.spread:.2f}", _mm(s.percent_of_vogel)] for s in rows],
+    )
+
+    review = round.folder / REVIEW
+    review.mkdir(exist_ok=True)
+    drawn = {(r.cell.plate.number, r.cell.day): annotated(crops[(r.cell.plate.number, r.cell.day)], r) for r in readings}
+    days = sorted({r.cell.day for r in readings})
+    written = []
+    for strain in key.strains():
+        path = review / f"outlines_{table_name(strain)}"
+        render_table(key, strain, drawn, days, title=f"{strain}  ·  {round.folder.name}  ·  Outlines").save(path, quality=88)
+        written.append(path)
+    tag = lambda r: f"p{r.cell.plate.number} D{r.cell.day}"  # noqa: E731
+    flagged = [(f"{tag(r)}  {', '.join(r.flags)}", [crops[(r.cell.plate.number, r.cell.day)], drawn[(r.cell.plate.number, r.cell.day)]])
+               for r in readings if not r.outline]
+    decided = [(tag(r), [drawn[(r.cell.plate.number, r.cell.day)]]) for r in readings if r.outline]
+    written += sheets(flagged, "flagged", review, per_row=2) + sheets(decided, "decided", review, per_row=4)
+
+    colour = plots.colours([full[n].condition for n in full.plates()])  # a Condition keeps its colour when another is left out
+    figures = []
+    for strain in key.strains():
+        path = out / table_name(strain).replace(".jpg", ".png")
+        plots.save(plots.strain_figure(strain, readings, growth, rows, colour), path)
+        figures.append(path)
+    path = out / "summary.png"
+    plots.save(plots.summary_figure(f"{round.folder.name}: Growth rate against Vogel", rows, colour), path)
+    figures.append(path)
+    return Measured(readings, growth, rows, diameters, written, figures)
 
 
 def embed(path: Path) -> str:

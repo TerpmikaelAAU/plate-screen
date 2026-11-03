@@ -5,6 +5,7 @@ description = "Turn daily photos of an antibiotic plate screening into per-strai
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "matplotlib>=3.11.2",
     "numpy>=2.5.3",
     "opencv-python-headless>=5.0.0.93",
     "pillow>=12.3.0",
