@@ -34,7 +34,7 @@ def annotated(crop: Image.Image, r: Reading) -> Image.Image:
     if r.outline:
         if r.chosen is not None:
             _draw(draw, r.chosen, COLOURS[r.outline])
-        label = r.outline if r.diameter is None else f"{r.diameter:.1f} mm"
+        label = r.outline if r.diameter is None or r.outline == "empty" else f"{r.diameter:.1f} mm"
         if r.outline in COLOURS:
             label = f"{r.outline}  {label}"
         draw.text((12, 10), label, font=font(36), fill=TEXT)

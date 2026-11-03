@@ -82,4 +82,4 @@ The diameter of the circle with the same area as the Colony's Outline, in mm. Me
 _Avoid_: Size, width
 
 **Growth rate**:
-How fast the Diameter of one Plate increases, in mm per Day, over the same early Days for every Plate of a Round (up to Day 4, and only before the Colony reaches the rim), timed by when each Photo was taken.
+How fast the Diameter of one Plate increases, in mm per Day, over the same early Days for every Plate of a Round (up to Day 4, from the Day the Colony first shows, and only before it reaches the rim or 80% of the dish), timed by when each Photo was taken.

@@ -20,7 +20,7 @@ ST_06_ST_07/
   key.csv            plate,strain,condition,replicate   (you write this, or Claude drafts it from the key photo)
   labels.csv         photo,day,plate,status             (proposed by `label`, checked by Claude, corrected by you)
   crop_overrides.csv photo,x,y,r                        (optional: dish centre and radius when detection fails)
-  measure_overrides.csv photo,outline,satellites,note   (review's choice of Outline per photo: A, B, C, empty or none)
+  measure_overrides.csv photo,outline,satellites,note   (review's choice of Outline per photo: A, B, C, empty, none, or blank for a note only)
   Day_0/ … Day_7/    the photos, moved here by `sort`
   Review/            notes_Day_N.jpg sheets for checking labels, crops.jpg for checking crops
   Tables/            St06.jpg, St07.jpg

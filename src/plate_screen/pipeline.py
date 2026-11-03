@@ -170,8 +170,13 @@ def _measure_overrides(round: Round) -> dict[str, dict[str, str]]:
     path = round.folder / MEASURE_OVERRIDES_FILE
     if not path.exists():
         return {}
+    rows = {}
     with open(path, newline="") as f:
-        rows = {r["photo"]: {k: (v or "").strip() for k, v in r.items()} for r in csv.DictReader(f)}
+        for r in csv.DictReader(f, restkey="more"):
+            # A note with an unquoted comma spills into more fields
+            r["note"] = ",".join([r.get("note") or "", *r.pop("more", [])])
+            r = {k: (v or "").strip() for k, v in r.items()}
+            rows[r["photo"]] = r
     for photo, r in rows.items():
         if r.get("outline") and r["outline"] not in CHOICES:
             raise ValueError(f"{MEASURE_OVERRIDES_FILE}: {photo} has outline {r['outline']!r}, not one of {', '.join(CHOICES)}")
@@ -207,9 +212,15 @@ def measure(round: Round) -> Measured:
     photos = {k: photo for k, (photo, _) in _cached(round, labels).items()}
     crops = _crops(round, labels)
     refs = references(crops)
+    if not refs:
+        raise ValueError("no Crops to measure: measuring needs a Day 0 Photo of each Plate and `run` done first")
     overrides = _measure_overrides(round)
     day0 = datetime.combine(round.start, time())
     at = {p.name: (p.taken - day0) / timedelta(days=1) for p in round.photos()}
+
+    unknown = sorted(set(overrides) - set(photos.values()))
+    if unknown:
+        raise ValueError(f"{MEASURE_OVERRIDES_FILE}: no labelled Crop for {', '.join(unknown)}")
 
     cells = []
     for plate in key.plates():

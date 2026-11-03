@@ -94,6 +94,10 @@ def read(cells: list[Cell]) -> list[Reading]:
             if abs(guess[id(c)] - m) > max(REPLICATE_MM, REPLICATE_SHARE * m):
                 flags[id(c)].append("replicates differ")
 
+    for c in cells:
+        if c.choice in c.outlines and c.outlines[c.choice] is None:
+            raise ValueError(f"{c.photo}: the review chose {c.choice}, but {c.choice} found no Colony there")
+
     readings = []
     for c in cells:
         decided = c.choice or ("" if flags[id(c)] else _guess(c))
@@ -126,6 +130,9 @@ def growth_rates(readings: list[Reading]) -> list[Growth]:
             if r.diameter >= FIT_SHARE * DISH_MM or (r.chosen is not None and r.chosen.at_rim):
                 break
             fit.append(r)
+        # Days before the Colony first shows hold only the inoculum, which is not 0 mm across
+        first = next((i for i, r in enumerate(fit) if r.diameter > 0), 0)
+        fit = fit[first:]
         days = [r.cell.day for r in fit]
         times = [r.cell.day if r.cell.at is None else r.cell.at for r in fit]
         rate = float(np.polyfit(times, [r.diameter for r in fit], 1)[0]) if len(fit) >= 2 else None

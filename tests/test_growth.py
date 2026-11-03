@@ -75,6 +75,25 @@ def test_growth_rate_goes_by_when_each_photo_was_taken():
     assert g.rate == pytest.approx(10)
 
 
+def test_growth_rate_leaves_out_days_before_the_colony_shows():
+    days = [cell(1, None, None, None)] + [cell(d, disc(5 * d)) for d in (2, 3, 4)]
+    [g] = growth_rates(read(days))
+    assert g.rate == pytest.approx(5)
+    assert g.days == [2, 3, 4]
+
+
+def test_a_plate_that_never_grows_has_no_growth():
+    [g] = growth_rates(read([cell(d, None, None, None) for d in (1, 2, 3)]))
+    assert g.rate == pytest.approx(0)
+
+
+def test_choosing_a_candidate_that_found_nothing_is_an_error():
+    c = cell(2, disc(20), disc(35), choice="C")
+    c.outlines["C"] = None
+    with pytest.raises(ValueError, match="p1_d2.jpg"):
+        read([c])
+
+
 def test_growth_rate_needs_two_days():
     [g] = growth_rates(read([cell(1, disc(10)), cell(2, disc(20), disc(40))]))
     assert g.rate is None

@@ -125,7 +125,7 @@ def _trace(
     size = img.shape[0]
     c, dish = size / 2, size / 2 / MARGIN
     cx, cy = centre
-    n = int(LIMIT * dish + 60)
+    n = int((LIMIT + 0.5) * dish)  # reaches the limit from a centre up to half the dish off the middle
     lab, xs, ys = _polar(_lab(img), cx, cy, n)
     tex, _, _ = _polar(_texture(img), cx, cy, n)
     before, _, _ = _polar(_lab(ref), cx, cy, n)
