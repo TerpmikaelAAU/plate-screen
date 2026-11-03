@@ -130,14 +130,16 @@ def growth_rates(readings: list[Reading]) -> list[Growth]:
             if r.diameter >= FIT_SHARE * DISH_MM or (r.chosen is not None and r.chosen.at_rim):
                 break
             fit.append(r)
-        # Days before the Colony first shows hold only the inoculum, which is not 0 mm across; they stay in when the
-        # Colony shows too late to fit without them, so a Plate held back by its Condition still counts
-        first = next((i for i, r in enumerate(fit) if r.diameter > 0), 0)
-        if len(fit) - first >= 2:
-            fit = fit[first:]
+        # Before the Colony first shows the dish holds only the inoculum, which its first Diameter already includes: count
+        # those Days at that size, so a Plate held back by its Condition comes out slow rather than fast
+        first = next((r.diameter for r in fit if r.diameter > 0), 0.0)
+        sizes, seen = [], False
+        for r in fit:
+            seen = seen or r.diameter > 0
+            sizes.append(r.diameter if seen else first)
         days = [r.cell.day for r in fit]
         times = [r.cell.day if r.cell.at is None else r.cell.at for r in fit]
-        rate = float(np.polyfit(times, [r.diameter for r in fit], 1)[0]) if len(fit) >= 2 else None
+        rate = float(np.polyfit(times, sizes, 1)[0]) if len(fit) >= 2 else None
         out.append(Growth(rs[0].cell.plate, rate, days))
     return out
 

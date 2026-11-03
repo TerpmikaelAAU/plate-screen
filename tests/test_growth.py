@@ -75,18 +75,23 @@ def test_growth_rate_goes_by_when_each_photo_was_taken():
     assert g.rate == pytest.approx(10)
 
 
-def test_growth_rate_leaves_out_days_before_the_colony_shows():
-    days = [cell(1, None, None, None)] + [cell(d, disc(5 * d)) for d in (2, 3, 4)]
+# Until the Colony first shows, the dish holds only the inoculum, and the first Diameter already includes it
+@pytest.mark.parametrize("shows, sizes, rate", [
+    (2, [12, 17, 22], 3.5),  # 12, 12, 17, 22
+    (3, [15, 18], 0.9),  # 15, 15, 15, 18
+    (4, [15], 0.0),  # held back until Day 4: no faster than a Plate that never grows
+])
+def test_days_before_the_colony_shows_count_at_its_first_size(shows, sizes, rate):
+    days = [cell(d, None, None, None) for d in range(1, shows)] + [cell(d, disc(s)) for d, s in zip(range(shows, 5), sizes)]
     [g] = growth_rates(read(days))
-    assert g.rate == pytest.approx(5)
-    assert g.days == [2, 3, 4]
-
-
-def test_a_colony_that_shows_on_the_last_fitted_day_still_counts():
-    days = [cell(d, None, None, None) for d in (1, 2, 3)] + [cell(4, disc(3))]
-    [g] = growth_rates(read(days))
+    assert g.rate == pytest.approx(rate)
     assert g.days == [1, 2, 3, 4]
-    assert 0 < g.rate < 3
+
+
+def test_a_later_colony_never_grows_faster_than_an_earlier_one():
+    rates = [growth_rates(read([cell(d, None, None, None) for d in range(1, shows)] + [cell(shows, disc(15))]))[0].rate
+             for shows in (2, 3)]
+    assert rates[0] >= rates[1]
 
 
 def test_a_plate_that_never_grows_has_no_growth():

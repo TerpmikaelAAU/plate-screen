@@ -103,7 +103,7 @@ def strain_figure(strain: str, readings: list[Reading], growth: list[Growth], su
     right.set_xticks(range(len(conditions)), [_wrap(short(c)) for c in conditions], fontsize=9)
     right.set_xlim(-0.6, len(conditions) - 0.4)
     right.set_ylabel("Growth rate (mm/Day)", color=INK_2)
-    right.set_ylim(bottom=1.1 * min([0] + [g.rate for g in growth if g.plate.strain == strain and g.rate is not None]))
+    right.set_ylim(bottom=1.1 * min([0] + [g.rate for g in growth if g.plate.strain == strain and g.rate is not None]) - 0.5)
 
     fig.suptitle(strain, x=0.06, ha="left", fontsize=13, color=INK)
     # Every Condition in the legend, also one with no Day where all its Replicates have a Diameter
@@ -132,7 +132,7 @@ def summary_figure(title: str, summary: list[Summary], colour: dict) -> plt.Figu
     ax.annotate(CONTROL, (100, len(strains) - 0.4), xytext=(4, 0), textcoords="offset points", fontsize=9, color=INK_2)
     ax.set_yticks(range(len(strains)), strains, fontsize=9)
     ax.set_ylim(len(strains) - 0.3, -0.7)
-    ax.set_xlim(left=1.1 * min([0] + [s.percent_of_vogel for s in summary if s.percent_of_vogel is not None]))
+    ax.set_xlim(left=1.1 * min([0] + [s.percent_of_vogel for s in summary if s.percent_of_vogel is not None]) - 3)
     ax.set_xlabel("Growth rate, % of the same Strain on Vogel", color=INK_2)
     if seen:
         ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02), ncol=len(seen), frameon=False, fontsize=9)
