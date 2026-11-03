@@ -57,24 +57,30 @@ def _label_ends(ax, ends: list) -> None:
                     bbox=dict(facecolor=SURFACE, edgecolor="none", pad=1))
 
 
-def _size(r: Reading) -> float | None:
-    return RIM_MM if r.outline == "rim" else r.diameter
+def _sizes(readings: list[Reading]) -> dict[int, float | None]:
+    """Each Reading's Diameter for plotting, by id: from the first Day a Plate's Colony is at the rim, at the rim."""
+    rim = {}
+    for r in readings:
+        if r.outline == "rim":
+            rim[r.cell.plate.number] = min(r.cell.day, rim.get(r.cell.plate.number, r.cell.day))
+    return {id(r): RIM_MM if r.cell.day >= rim.get(r.cell.plate.number, r.cell.day + 1) else r.diameter for r in readings}
 
 
 def means(readings: list[Reading]) -> list[tuple[int, float, bool]]:
     """The mean Diameter per Day of one Condition's Replicates, from those measured that Day (one at the rim counts at
-    the rim), and whether every Replicate was."""
+    the rim, as do its later Days), and whether every Replicate was."""
     plates = {r.cell.plate.number for r in readings}
+    size = _sizes(readings)
     out = []
     for day in sorted({r.cell.day for r in readings}):
-        sizes = [_size(r) for r in readings if r.cell.day == day and _size(r) is not None]
+        sizes = [size[id(r)] for r in readings if r.cell.day == day and size[id(r)] is not None]
         if sizes:
             out.append((day, sum(sizes) / len(sizes), len(sizes) == len(plates)))
     return out
 
 
 def strain_figure(strain: str, readings: list[Reading], growth: list[Growth], summary: list[Summary], colour: dict) -> plt.Figure:
-    """Left: each Plate's Diameter by Day (thin) and the mean per Condition (thick) on Days with every Replicate. Right: each Plate's Growth rate
+    """Left: each Plate's Diameter by Day (thin) and the mean per Condition (thick), open where a Replicate is missing. Right: each Plate's Growth rate
     by Condition, the mean as a bar across, and the mean as a percentage of Vogel."""
     fig, (left, right) = plt.subplots(1, 2, figsize=(11, 4.2), gridspec_kw={"width_ratios": [3, 2]}, facecolor=SURFACE)
     conditions = list(dict.fromkeys(r.cell.plate.condition for r in readings if r.cell.plate.strain == strain))
@@ -83,13 +89,14 @@ def strain_figure(strain: str, readings: list[Reading], growth: list[Growth], su
 
     for condition in conditions:
         mine = [r for r in readings if r.cell.plate.strain == strain and r.cell.plate.condition == condition]
+        size = _sizes(mine)
         by_plate: dict[int, list[Reading]] = {}
         for r in mine:
-            if _size(r) is not None:
+            if size[id(r)] is not None:
                 by_plate.setdefault(r.cell.plate.number, []).append(r)
         for rs in by_plate.values():
             rs.sort(key=lambda r: r.cell.day)
-            left.plot([r.cell.day for r in rs], [_size(r) for r in rs], color=colour[condition], linewidth=1, alpha=0.35)
+            left.plot([r.cell.day for r in rs], [size[id(r)] for r in rs], color=colour[condition], linewidth=1, alpha=0.35)
         # Open markers on Days the mean is missing a Replicate
         points = means(mine)
         if points:
@@ -102,7 +109,7 @@ def strain_figure(strain: str, readings: list[Reading], growth: list[Growth], su
     _style(left)
     if any(r.outline == "rim" for r in readings if r.cell.plate.strain == strain):
         left.axhline(RIM_MM, color=INK_2, linewidth=1, linestyle=(0, (4, 3)), zorder=1)
-        left.annotate("dish rim", (0, RIM_MM), xycoords=("axes fraction", "data"), xytext=(4, 4), textcoords="offset points",
+        left.annotate("at the rim", (0, RIM_MM), xycoords=("axes fraction", "data"), xytext=(4, 4), textcoords="offset points",
                       fontsize=8, color=INK_2)
     left.set_xlabel("Day", color=INK_2)
     left.set_ylabel("Diameter (mm)", color=INK_2)

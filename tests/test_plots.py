@@ -19,4 +19,9 @@ def test_a_replicate_at_the_rim_counts_at_the_rim():
 
 def test_replicates_that_all_reached_the_rim_put_the_mean_on_it():
     rs = [reading(1, 5, "rim", None), reading(2, 5, "rim", None), reading(1, 6, "rim", None), reading(2, 6, "none", None)]
-    assert means(rs) == [(5, RIM_MM, True), (6, RIM_MM, False)]
+    assert means(rs) == [(5, RIM_MM, True), (6, RIM_MM, True)]
+
+
+def test_a_colony_stays_at_the_rim_once_it_reaches_it():
+    rs = [reading(1, 4, "rim", None), reading(2, 4, "A", 40.0), reading(1, 5, "A", 68.0), reading(2, 5, "A", 45.0)]
+    assert means(rs) == [(4, (RIM_MM + 40) / 2, True), (5, (RIM_MM + 45) / 2, True)]
