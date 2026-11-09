@@ -1,8 +1,10 @@
 """The Table: one image per Strain, a row per Plate (Condition and Replicate), a column per Day."""
 
+import re
+
 from PIL import Image, ImageDraw, ImageFont
 
-from .key import Key
+from .key import Key, Plate
 
 CELL = 360
 GAP = 16
@@ -16,6 +18,17 @@ INK = (235, 235, 235)
 def table_name(strain: str) -> str:
     """Tables are photos, so JPEG: a PNG of one runs past 10 MB."""
     return strain.replace(" ", "") + ".jpg"
+
+
+def strain_name(strain: str) -> str:
+    """How a Strain is written for readers: `St 06` in the Key becomes `Strain 06`."""
+    return re.sub(r"^St(?:rain)?\.?\s*(?=\d)", "Strain ", strain)
+
+
+def row_label(plate: Plate, plate_number: bool = False) -> str:
+    """Plate numbers are for us, so only the review sheets show them."""
+    label = f"{plate.condition}\nReplicate {plate.replicate}"
+    return f"{label} · Plate {plate.number}" if plate_number else label
 
 
 def font(size: int) -> ImageFont.FreeTypeFont:
@@ -34,10 +47,11 @@ def render_table(
     crops: dict[tuple[int, int], Image.Image],
     days: list[int],
     title: str,
+    plate_number: bool = False,
 ) -> Image.Image:
     """crops maps (Plate number, Day) to a Crop; a missing Crop leaves its cell black."""
     rows = key.rows(strain)
-    labels = [f"{p.condition}\nReplicate {p.replicate} · Plate {p.number}" for p in rows]
+    labels = [row_label(p, plate_number) for p in rows]
     measure = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     label_width = max(
         [LABEL_WIDTH] + [measure.multiline_textbbox((0, 0), t, font=font(30), spacing=10)[2] + 4 * GAP for t in labels]

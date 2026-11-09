@@ -2,7 +2,7 @@ import numpy as np
 from PIL import Image
 
 from plate_screen.key import Key, Plate
-from plate_screen.table import CELL, render_table, table_name
+from plate_screen.table import CELL, render_table, row_label, strain_name, table_name
 
 KEY = Key(
     [
@@ -41,3 +41,16 @@ def test_a_long_condition_widens_the_label_column_instead_of_running_into_the_cr
     short = render_table(KEY, "St 07", {}, days=[0], title="t")
     long = Key([Plate(3, "St 07", "Vogel + 0.1 mg/mL Basta + 500 µg/mL Hyg + a long note", "A")])
     assert render_table(long, "St 07", {}, days=[0], title="t").width > short.width
+
+
+def test_a_strain_is_written_out_in_full():
+    assert strain_name("St 06") == "Strain 06"
+    assert strain_name("St06") == "Strain 06"
+    assert strain_name("Strain 06") == "Strain 06"
+    assert strain_name("Stachybotrys") == "Stachybotrys"  # only a numbered St is shortened
+
+
+def test_a_table_row_names_condition_and_replicate_but_not_the_plate_number():
+    plate = Plate(12, "St 06", "Vogel", "B")
+    assert row_label(plate) == "Vogel\nReplicate B"
+    assert row_label(plate, plate_number=True) == "Vogel\nReplicate B · Plate 12"

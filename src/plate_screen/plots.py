@@ -10,6 +10,7 @@ from matplotlib.lines import Line2D  # noqa: E402
 
 from .growth import CONTROL, Growth, Reading, Summary  # noqa: E402
 from .measure import DISH_MM, LIMIT  # noqa: E402
+from .table import strain_name  # noqa: E402
 
 # Categorical slots in fixed order; a Condition keeps its colour in every figure of a Round
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
@@ -134,7 +135,7 @@ def strain_figure(strain: str, readings: list[Reading], growth: list[Growth], su
     right.set_ylabel("Growth rate (mm/Day)", color=INK_2)
     right.set_ylim(bottom=1.1 * min([0] + [g.rate for g in growth if g.plate.strain == strain and g.rate is not None]) - 0.5)
 
-    fig.suptitle(strain, x=0.06, ha="left", fontsize=13, color=INK)
+    fig.suptitle(strain_name(strain), x=0.06, ha="left", fontsize=13, color=INK)
     # Every Condition in the legend, also one with no Day where all its Replicates have a Diameter
     handles = [Line2D([], [], color=colour[c], linewidth=2, marker="o", markersize=5) for c in conditions]
     labels = list(conditions)
@@ -163,7 +164,7 @@ def summary_figure(title: str, summary: list[Summary], colour: dict) -> plt.Figu
     ax.grid(axis="x", color=RULE, linewidth=0.8)
     ax.axvline(100, color=INK_2, linewidth=1)
     ax.annotate(CONTROL, (100, len(strains) - 0.4), xytext=(4, 0), textcoords="offset points", fontsize=9, color=INK_2)
-    ax.set_yticks(range(len(strains)), strains, fontsize=9)
+    ax.set_yticks(range(len(strains)), [strain_name(s) for s in strains], fontsize=9)
     ax.set_ylim(len(strains) - 0.3, -0.7)
     ax.set_xlim(left=1.1 * min([0] + [s.percent_of_vogel for s in summary if s.percent_of_vogel is not None]) - 3)
     ax.set_xlabel("Growth rate, % of the same Strain on Vogel", color=INK_2)
