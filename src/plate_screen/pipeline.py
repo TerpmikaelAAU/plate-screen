@@ -17,7 +17,7 @@ from .labels import Label, Labels
 from .measure import measure_plate, references
 from .review import annotated, sheets
 from .round import Move, Round
-from .table import font, render_table, table_name
+from .table import font, render_table, strain_name, table_name
 
 KEY_FILE = "key.csv"
 OVERRIDES_FILE = "crop_overrides.csv"
@@ -159,7 +159,7 @@ def _crops_sheet(round: Round, labels) -> Image.Image:
     key = _key(round)
     everything = Key([Plate(n, "all", f"{key[n].strain} · {key[n].condition}", key[n].replicate) for n in key.plates()])
     days = sorted({r.day for r in labels})
-    sheet = render_table(everything, "all", _crops(round, labels), days, title=f"{round.folder.name}: all Crops")
+    sheet = render_table(everything, "all", _crops(round, labels), days, title=f"{round.folder.name}: all Crops", plate_number=True)
     return sheet.resize((sheet.width // 3, sheet.height // 3))
 
 
@@ -173,7 +173,7 @@ def table(round: Round) -> list[Path]:
     written = []
     for strain in key.strains():
         path = out / table_name(strain)
-        render_table(key, strain, crops, days, title=f"{strain}  ·  {round.folder.name}").save(path, quality=90)
+        render_table(key, strain, crops, days, title=strain_name(strain)).save(path, quality=90)
         written.append(path)
     return written
 
@@ -289,7 +289,7 @@ def measure(round: Round) -> Measured:
     written = []
     for strain in key.strains():
         path = review / f"outlines_{table_name(strain)}"
-        render_table(key, strain, drawn, days, title=f"{strain}  ·  {round.folder.name}  ·  Outlines").save(path, quality=88)
+        render_table(key, strain, drawn, days, title=f"{strain}  ·  {round.folder.name}  ·  Outlines", plate_number=True).save(path, quality=88)
         written.append(path)
     tag = lambda r: f"p{r.cell.plate.number} D{r.cell.day}"  # noqa: E731
     flagged = [(f"{tag(r)}  {', '.join(r.flags)}", [crops[(r.cell.plate.number, r.cell.day)], drawn[(r.cell.plate.number, r.cell.day)]])
@@ -304,7 +304,7 @@ def measure(round: Round) -> Measured:
         plots.save(plots.strain_figure(strain, readings, growth, rows, colour), path)
         figures.append(path)
     path = out / "summary.png"
-    plots.save(plots.summary_figure(f"{round.folder.name}: Growth rate against Vogel", rows, colour), path)
+    plots.save(plots.summary_figure("Growth rate against Vogel", rows, colour), path)
     figures.append(path)
     return Measured(readings, growth, rows, diameters, written, figures)
 
